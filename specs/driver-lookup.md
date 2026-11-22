@@ -166,10 +166,15 @@ must not be used (it's off by one, EDA §3.4).
 among their valid laps with that `qs`. If there are none, the segment best is *missing*.
 
 **REQ-SEG-2 — Segment rank.** Within each segment, drivers with a segment best are ranked 1…n by
-time (ties per REQ-CLS-5). Drivers without one have no rank in that segment.
+time (ties per REQ-CLS-5). Drivers who **reached** the segment but set no time there are ranked
+after them, in the same order the classification uses (REQ-CLS-3/4). Two cases have no rank:
+drivers who didn't reach the segment, and NC drivers (REQ-CLS-6), who aren't placed anywhere.
+
+> *Example:* BOR — Q3 rank **10** (no time set, behind the 9 timed Q3 drivers).
+> VER — Q1 no rank (NC). ALO — Q2 and Q3 no rank (did not take part).
 
 **REQ-SEG-3 — Gap to segment fastest.** For a driver with a segment best: their time minus the
-fastest segment best in that segment (0 for the fastest driver).
+fastest segment best in that segment (0 for the fastest driver). No segment best, no gap.
 
 > *Example:* LIN — Q1 1:20.409 (8th, +0.902), Q2 1:19.971 (8th, +1.037), Q3 1:21.247 (9th, +2.729).
 
@@ -290,7 +295,7 @@ Reached Q3 but set no time; placed behind Q3 runners
 Segment  Best lap   Rank  Gap
 Q1       1:20.495   10    +0.988
 Q2       1:20.221   10    +1.287
-Q3       —                        no time set
+Q3       —          10            no time set
 
 Insights
 - Teammate HUL (P11): Q1 -0.529, Q2 -0.082 (faster in 2 of 2)
@@ -306,7 +311,8 @@ That's the MVP output. *Later* insights add lines in REQ-INS order, for example:
 - Red flags: run interrupted in Q1 (lap 4) and Q3 (lap 16)
 ```
 
-Missing segment bests show `—` in the time column, blanks for rank and gap, and the REQ-SEG-4 reason
+Missing segment bests show `—` in the time column, the REQ-SEG-2 rank if there is one (otherwise
+blank), a blank gap, and the REQ-SEG-4 reason
 (`no time set` or `did not take part`) at the end of the row. Insights that don't
 apply are omitted (REQ-INS). If none apply, the `Insights` heading is omitted too. A classification
 note (REQ-CLS-8) or NC reason (REQ-CLS-6) goes on the line under the position. For an NC driver the
@@ -323,7 +329,7 @@ unknown option (exit 2). When built, `--json` prints one JSON object to stdout i
   "segments": {
     "Q1": {"time": 80.495, "display": "1:20.495", "rank": 10, "gap": 0.988},
     "Q2": {"time": 80.221, "display": "1:20.221", "rank": 10, "gap": 1.287},
-    "Q3": null
+    "Q3": {"time": null, "display": "—", "rank": 10, "gap": null, "status": "no time set"}
   },
   "insights": [{"id": "INS-2", "title": "Teammate HUL (P11)", "detail": "Q1 -0.529, Q2 -0.082 (faster in 2 of 2)"}],
   "caveats": []

@@ -34,9 +34,25 @@ def test_req_seg_3_fastest_driver_gap_is_zero(by_code):
     assert by_code["RUS"].segments["Q3"].gap == 0
 
 
-def test_req_seg_2_no_rank_without_a_time(by_code):
-    assert by_code["BOR"].segments["Q3"].rank is None
+def test_req_seg_2_reached_without_time_ranked_behind_timed(by_code):
+    # BOR reached Q3 but set no time: ranked 10th, behind the 9 timed Q3 drivers; no gap.
+    assert by_code["BOR"].segments["Q3"].rank == 10
     assert by_code["BOR"].segments["Q3"].gap is None
+
+
+def test_req_seg_2_no_rank_if_not_reached_or_nc(by_code):
+    assert by_code["ALO"].segments["Q2"].rank is None     # did not take part
+    assert by_code["ALO"].segments["Q3"].rank is None
+    assert by_code["VER"].segments["Q1"].rank is None     # NC: not placed anywhere
+
+
+def test_req_seg_2_several_without_time_ranked_like_classification(load_rows):
+    # AAA and BBB reach Q3 with no time; BBB was faster in Q2, so BBB is ranked ahead.
+    results = {r.code: r for r in classify(load_rows([
+        lap("AAA", "Q2", 79.9), lap("BBB", "Q2", 79.8), lap("CCC", "Q2", 80.0),
+        lap("CCC", "Q3", 79.5),
+    ]))}
+    assert [results[c].segments["Q3"].rank for c in ("CCC", "BBB", "AAA")] == [1, 2, 3]
 
 
 @pytest.mark.parametrize(

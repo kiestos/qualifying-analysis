@@ -37,7 +37,7 @@ def test_req_out_1_report_shows_note_and_missing_segment(run_cli):
     assert "Reached Q3 but set no time; placed behind Q3 runners" in out
     rows = rows_of(out)
     assert rows["Q2"][:4] == ["Q2", "1:20.221", "10", "+1.287"]
-    assert rows["Q3"] == ["Q3", "—", "no", "time", "set"]
+    assert rows["Q3"] == ["Q3", "—", "10", "no", "time", "set"]
 
 
 def test_req_out_1_did_not_take_part(run_cli):
@@ -53,6 +53,7 @@ def test_req_out_1_unclassified_driver(run_cli):
     assert "Not classified (NC)" in out
     assert "No valid lap set" in out
     assert "Classified P" not in out
+    assert rows_of(out)["Q1"] == ["Q1", "—", "no", "time", "set"]     # NC: no rank
 
 
 def test_req_out_3_list(run_cli):

@@ -63,20 +63,27 @@ def _reached(drivers: list[str], bests, advance: dict[str, int]) -> dict[str, se
     return reached
 
 
-def _segment_results(drivers, bests, reached) -> dict[str, dict[str, SegmentResult]]:
-    """Time, rank, gap and status per driver per segment (REQ-SEG-1..4)."""
+def _segment_results(drivers, bests, reached, has_lap) -> dict[str, dict[str, SegmentResult]]:
+    """Time, rank, gap and status per driver per segment (REQ-SEG-1..4).
+
+    Ranked: everyone with a time in the segment, then everyone who reached it without one
+    (except NC drivers), in the same order the classification uses (REQ-SEG-2).
+    """
     results = {code: {} for code in drivers}
     for seg in SEGMENTS:
-        timed = sorted((bests[(c, seg)], c) for c in drivers if (c, seg) in bests)
-        fastest = timed[0][0][0] if timed else None
-        ranks = {code: i for i, (_, code) in enumerate(timed, start=1)}
+        ranked = [c for c in drivers
+                  if (c, seg) in bests or (c in reached[seg] and c in has_lap)]
+        ranks = {code: i for i, code in enumerate(_order(ranked, seg, bests), start=1)}
+        times = [bests[(c, seg)][0] for c in drivers if (c, seg) in bests]
+        fastest = min(times) if times else None
         for code in drivers:
-            if code in ranks:
+            rank = ranks.get(code)
+            if (code, seg) in bests:
                 time = bests[(code, seg)][0]
-                results[code][seg] = SegmentResult(time, ranks[code], time - fastest, TIMED)
+                results[code][seg] = SegmentResult(time, rank, time - fastest, TIMED)
             else:
                 status = NO_TIME if code in reached[seg] else NOT_REACHED
-                results[code][seg] = SegmentResult(None, None, None, status)
+                results[code][seg] = SegmentResult(None, rank, None, status)
     return results
 
 
@@ -101,10 +108,10 @@ def classify(laps: list[Lap], advance: dict[str, int] = ADVANCE) -> list[DriverR
 
     bests = segment_bests(laps)
     reached = _reached(drivers, bests, advance)
-    segments = _segment_results(drivers, bests, reached)
+    has_lap = {c for (c, _) in bests}
+    segments = _segment_results(drivers, bests, reached, has_lap)
     furthest = {c: max((s for s in SEGMENTS if c in reached[s]), key=SEGMENTS.index)
                 for c in drivers}
-    has_lap = {c for (c, _) in bests}
 
     ordered: list[DriverResult] = []
     for seg in reversed(SEGMENTS):                              # REQ-CLS-1

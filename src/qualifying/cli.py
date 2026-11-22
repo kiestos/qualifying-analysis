@@ -60,7 +60,8 @@ def render_report(result: DriverResult, results: list[DriverResult]) -> str:
         if s.time is not None:
             lines.append(f"{seg:<8} {format_laptime(s.time):<10} {s.rank:<5} {format_delta(s.gap)}")
         else:
-            lines.append(f"{seg:<8} {format_laptime(None):<10} {'':<5} {'':<7} {s.status}")
+            rank = s.rank if s.rank is not None else ""
+            lines.append(f"{seg:<8} {format_laptime(None):<10} {rank:<5} {'':<7} {s.status}")
 
     lines += ["", "Insights"]
     lines += [f"- {line}" for line in teammate_lines(results, result.code)]
