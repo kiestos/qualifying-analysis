@@ -186,10 +186,10 @@ docs didn't match the real output's spacing.
 
 ## Use of AI
 I used Claude Code throughout. It drafted the analysis notebook, the spec, the tests,
-the code and this write-up. I have thorough review of the EDA and Spec before starting the
-implementation. This has been review but not at the line by line level. 
+the code and this write-up. I thoroughly reviewed the EDA and Spec before starting the
+implementation. This has been reviewed but not at the line by line level. 
 
-The Technical Task what not shown to the AI during this early phase as I didn't want to constrain the EDA and the art of the possible. But it was later used by me to validate the spec before proceeding with implementation as well as drafting the write-up.
+The Technical Task was not shown to the AI during this early phase as I didn't want to constrain the EDA and the art of the possible. But it was later used by me to validate the spec before proceeding with implementation as well as drafting the write-up.
 
 I made the design decisions, and several changed its first suggestion:
 - fixed cut-offs, so Bortoleto counts as a Q3 driver
@@ -197,13 +197,14 @@ I made the design decisions, and several changed its first suggestion:
 - the teammate comparison instead of gap to pole
 - an interactive prompt that never exits on bad input
 - a dependency-free runtime
-- the module structure, consoldate class into models.py, seperating out loading logic
-- ensure it available as a package for incoprorating into streamlit/web app later
+- the module structure, consolidating classes into models.py, separating out loading logic
+- making it available as a package for incorporating into streamlit/web app later
 - time formatting
 
 I checked its work in three ways:
 - every number in the spec was recomputed from the data
 - the tests were seen failing before the code existed
 - smoke-tests
+
 That caught several mistakes, including a red-flag bug in the notebook and a wrong sign in a spec
 example.
