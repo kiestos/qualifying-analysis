@@ -2,3 +2,6 @@
 __pycache__/
 .pytest_cache/
 .ipynb_checkpoints/
+
+# Exercise brief from the hiring team — not for the public repo
+brief.md
