@@ -1,8 +1,20 @@
 [project]
 name = "qualifying-analysis"
 version = "0.1.0"
-requires-python = ">=3.14"
+description = "Driver qualifying lookup for the 2026 Australian GP lap-times data"
+readme = "README.md"
+requires-python = ">=3.10"
 dependencies = []
+
+[project.scripts]
+quali = "qualifying.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.9.0,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "qualifying"
 
 [dependency-groups]
 dev = [
@@ -16,3 +28,11 @@ eda = [
     "numpy>=2.5.5",
     "pandas>=3.1.1",
 ]
+
+# The EDA tools need a newer Python than the tool itself (numpy >= 3.12).
+[tool.uv.dependency-groups]
+eda = { requires-python = ">=3.12" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

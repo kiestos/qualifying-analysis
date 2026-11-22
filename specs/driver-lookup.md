@@ -227,7 +227,8 @@ one more segment.
 > → B ahead of A.
 
 **REQ-CLS-5 — Equal times.** When two drivers have the same deciding time, the one who set it
-first (lower `sesT` on that lap) is ahead.
+first (lower `sesT` on that lap) is ahead. If they're still equal, or there are no times left to
+compare, driver code decides alphabetically, so the order is always deterministic (REQ-RT-3).
 
 **REQ-CLS-6 — Unclassified.** A driver with **no valid lap in any segment** is **NC** (not
 classified), with the reason `No valid lap set`. NC drivers are listed after all classified drivers,
@@ -308,8 +309,8 @@ That's the MVP output. *Later* insights add lines in REQ-INS order, for example:
 Missing segment bests show `—` in the time column, blanks for rank and gap, and the REQ-SEG-4 reason
 (`no time set` or `did not take part`) at the end of the row. Insights that don't
 apply are omitted (REQ-INS). If none apply, the `Insights` heading is omitted too. A classification
-note (REQ-CLS-8) or NC reason (REQ-CLS-6) goes on the line under the position. Column alignment uses
-plain spaces; no colour codes.
+note (REQ-CLS-8) or NC reason (REQ-CLS-6) goes on the line under the position. For an NC driver the
+position line reads `Not classified (NC)`. Column alignment uses plain spaces; no colour codes.
 
 **REQ-OUT-2 — JSON.** *(Later)* In the MVP, `--json` isn't accepted: argparse rejects it as an
 unknown option (exit 2). When built, `--json` prints one JSON object to stdout instead:
@@ -333,7 +334,7 @@ For an NC driver, `position` is `null` and `note` is `No valid lap set`. The `ca
 present so the shape stays stable; it's empty until REQ-INS-6 (*Later*) is built.
 
 **REQ-OUT-3 — List.** `--list` prints every driver code with team, one per line, sorted by code,
-and exits 0. It needs no driver code.
+as `CODE  Team` (two spaces), and exits 0. It needs no driver code.
 
 **REQ-OUT-4 — Exit codes.** 0 success · 1 data file problem · 2 usage error or unknown driver.
 Code 2 only applies when the code is given on the command line. The interactive prompt
