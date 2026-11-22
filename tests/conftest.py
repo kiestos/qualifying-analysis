@@ -9,7 +9,7 @@ Interfaces the tests rely on (the implementation must provide these):
   ``.malformed`` (int, REQ-IN-7); raises ``qualifying.load.DataError`` for REQ-IN-6.
   Laps are ``qualifying.models.Lap``; a lap has ``drv``, ``team``, ``lap``, ``qs``, ``time``, ``s1``-``s3``, ``sesT``, ``pin``,
   ``pout``, ``deleted`` (from ``del``), ``status`` and ``ff1g``; missing values are ``None``.
-- ``qualifying.laps.is_valid(lap) -> bool`` (REQ-LAP-1).
+- ``qualifying.classification.is_valid(lap) -> bool`` (REQ-LAP-1).
 - ``qualifying.classification.ADVANCE`` and
   ``classify(laps, advance=ADVANCE) -> list[DriverResult]`` in classification order, where a
   ``DriverResult`` (``qualifying.models``) has ``code``, ``team``, ``position`` (int or None), ``note`` (str or None),

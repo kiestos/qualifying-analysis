@@ -30,7 +30,7 @@ def test_models_depend_on_nothing_in_the_package():
     assert package_imports("models") == set()
 
 
-@pytest.mark.parametrize("module", ["laps", "classification", "insights", "format"])
+@pytest.mark.parametrize("module", ["classification", "insights", "format"])
 def test_rules_do_not_depend_on_the_loader_or_cli(module):
     assert package_imports(module).isdisjoint({"load", "cli"})
 

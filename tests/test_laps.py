@@ -3,7 +3,7 @@
 import pytest
 
 from conftest import lap
-from qualifying.laps import is_valid
+from qualifying.classification import is_valid
 
 
 def test_req_lap_1_clean_timed_lap_is_valid(load_rows):
