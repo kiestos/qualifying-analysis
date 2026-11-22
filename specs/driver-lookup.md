@@ -29,8 +29,8 @@ fields are unreliable, see EDA §3.1), telemetry, a graphical UI.
 
 | Release | Requirements |
 |---|---|
-| **MVP** | Everything in §3 **except** the items marked *Later*. That means one insight: **REQ-INS-1** (gap to pole and to neighbours) |
-| **Later** | REQ-INS-2 teammate · REQ-INS-3 cutoff margins · REQ-INS-4 theoretical best · REQ-INS-5 red flags · REQ-INS-6 data caveats · REQ-ADV-3 consistency check (it only feeds caveats) · REQ-OUT-2 JSON output (`--json`) and REQ-FMT-3 raw values in JSON |
+| **MVP** | Everything in §3 and §4 **except** the items marked *Later*. That means one insight: **REQ-INS-2** (teammate head-to-head) |
+| **Later** | REQ-INS-1 gap to pole and neighbours · REQ-INS-3 cutoff margins · REQ-INS-4 theoretical best · REQ-INS-5 red flags · REQ-INS-6 data caveats · REQ-ADV-3 consistency check (it only feeds caveats) · REQ-OUT-2 JSON output (`--json`) and REQ-FMT-3 raw values in JSON |
 
 *Later* requirements stay fully specified so they can be built without reopening decisions. Tests for
 them aren't written until they're scheduled. The MVP still reports BOR's and VER's situations
@@ -56,9 +56,14 @@ through the classification note (REQ-CLS-8) and the NC reason (REQ-CLS-6), not t
 ### 3.1 Runtime
 
 **REQ-RT-1 — No third-party runtime dependencies.** The tool must run with the Python standard
-library only (Python ≥ 3.14). pytest is a development dependency; EDA tooling is in the `eda` group.
+library only, on **Python ≥ 3.10**, so a reviewer doesn't need a very recent interpreter. pytest is a
+development dependency. EDA tooling is in the `eda` group and may need a newer Python (numpy needs
+≥ 3.12); that must not raise the tool's own minimum.
 
-**REQ-RT-2 — Command.** `uv run quali <CODE>` must run the tool from the project root.
+**REQ-RT-2 — Commands.** From the project root, both of these must run the tool:
+- `uv run quali <CODE>`
+- `python -m qualifying <CODE>`, with no uv and nothing installed (`src/` on the path, e.g.
+  `PYTHONPATH=src`). The README states the exact command.
 
 **REQ-RT-3 — Deterministic.** The same input must always give the same output.
 
@@ -77,9 +82,29 @@ one per field. Row *i* is the *i*-th element of every list.
 **REQ-IN-5 — Required fields.** The loader needs at least: `drv`, `team`, `lap`, `qs`, `time`,
 `s1`, `s2`, `s3`, `sesT`, `pin`, `pout`, `del`, `status`, `ff1G`.
 
-**REQ-IN-6 — Malformed file.** If the file is missing, isn't valid JSON, lacks a required field,
-or has lists of different lengths, the tool must print one line to stderr naming the problem and
-exit with code **1**.
+**REQ-IN-6 — Malformed file.** If the file is missing, isn't valid JSON, isn't a JSON object at the
+top level, lacks a required field, has a field that isn't a list, or has lists of different lengths,
+the tool must print one line to stderr naming the problem and exit with code **1**.
+
+**REQ-IN-7 — Malformed values.** Inside a well-formed file, bad individual values must not crash the
+tool or stop the report. Each one is handled as follows:
+
+| Value | Handling |
+|---|---|
+| A time (`time`, `s1`–`s3`, `sesT`, `pin`, `pout`) that isn't a number or numeric string, e.g. `"abc"` | Treated as missing |
+| `time` of zero or less | Treated as missing |
+| `del` / `ff1G` given as `"True"` / `"False"` strings | Read as the boolean; any other non-boolean value is treated as missing |
+| `qs` not one of `Q1`, `Q2`, `Q3` | Lap ignored |
+| `drv` missing or empty | Lap ignored |
+
+The tool then prints **one** warning line to stderr with the count, e.g.
+`Warning: ignored or treated as missing 3 malformed values`, and continues. This doesn't change the
+exit code. Values that are legitimately missing (`"None"`, `null`, REQ-IN-4) aren't counted.
+
+> *Example:* the real file produces no warning.
+>
+> *Example (synthetic):* one lap with `time` `"abc"` → that lap isn't valid, the report is printed,
+> and stderr has a warning with count 1.
 
 ### 3.3 Driver code input
 
@@ -92,6 +117,28 @@ must print `Driver code must be three letters, e.g. RUS` to stderr and exit with
 **REQ-DRV-3 — Unknown driver.** A well-formed code that isn't in the data must print
 `Driver XYZ not found in this dataset. Available: ALB, ALO, …` (codes sorted) to stderr and exit with
 code **2**. This covers STR and SAI, who are absent from this file (EDA §2).
+
+**REQ-DRV-4 — Interactive prompt.** *(MVP)* If no code is given on the command line, the tool
+loads the data once, then asks `Driver code (e.g. HUL, or q to quit): `. In this mode, **input
+problems never end the program or set an error exit code.** It always explains and asks again:
+
+| Input | Response |
+|---|---|
+| Valid, known code | Print the report (REQ-OUT-1), then ask for another code |
+| Bad format, e.g. `12`, `RUSS` | Print the REQ-DRV-2 message to stdout, ask again |
+| Unknown code, e.g. `XYZ`, `STR` | Print the REQ-DRV-3 message (with available codes) to stdout, ask again |
+| Empty line | Ask again, no message |
+| `q` or `quit` (any case) | Exit with code 0 |
+| End of input (Ctrl-D) or Ctrl-C | Print a newline, exit with code 0, no traceback |
+
+Data-file problems (REQ-IN-6) are found before the first prompt, so they still exit with code 1:
+there is nothing useful to ask for.
+
+Passing a code on the command line (`quali HUL`) still prints one report and exits, following
+REQ-DRV-2/3 and REQ-OUT-4. That keeps the tool scriptable and easy to test.
+
+> *Example:* `XYZ` → `Driver XYZ not found in this dataset. Available: ALB, ALO, …` → prompt again
+> → `hul` → HUL's report → prompt again → `q` → exit 0.
 
 ### 3.4 Valid laps
 
@@ -125,6 +172,10 @@ time (ties per REQ-CLS-5). Drivers without one have no rank in that segment.
 fastest segment best in that segment (0 for the fastest driver).
 
 > *Example:* LIN — Q1 1:20.409 (8th, +0.902), Q2 1:19.971 (8th, +1.037), Q3 1:21.247 (9th, +2.729).
+
+**REQ-SEG-4 — Why a time is missing.** When a driver has no segment best, the report must say why:
+- `no time set`: they reached the segment (REQ-ADV-1) but have no valid lap in it (BOR in Q3, VER in Q1)
+- `did not take part`: they didn't reach the segment (ALO in Q2 and Q3)
 
 ### 3.6 Reaching segments
 
@@ -225,20 +276,37 @@ Q2       1:18.934   1     +0.000
 Q3       1:18.518   1     +0.000
 
 Insights
-- Gap to pole: pole
-- Car behind: ANT -0.293 (Q3)
+- Teammate ANT (P2): Q1 -0.613, Q2 -0.501, Q3 -0.293 (faster in 3 of 3)
+```
+
+A driver with missing segments (MVP):
+
+```
+BOR · Audi
+Classified P10 of 19
+Reached Q3 but set no time; placed behind Q3 runners
+
+Segment  Best lap   Rank  Gap
+Q1       1:20.495   10    +0.988
+Q2       1:20.221   10    +1.287
+Q3       —                        no time set
+
+Insights
+- Teammate HUL (P11): Q1 -0.529, Q2 -0.082 (faster in 2 of 2)
 ```
 
 That's the MVP output. *Later* insights add lines in REQ-INS order, for example:
 
 ```
-- Teammate ANT: Q1 -0.613, Q2 -0.501, Q3 -0.293
+- Gap to pole: pole
+- Car behind: ANT -0.293 (Q3)
 - Cutoff margins: Q1 safe by 2.462, Q2 safe by 1.369
 - Theoretical best 1:18.518 — 0.000 left on the table; weakest sector: none (all session-best)
 - Red flags: run interrupted in Q1 (lap 4) and Q3 (lap 16)
 ```
 
-Missing segment bests show `—` in the time column and blanks for rank and gap. Insights that don't
+Missing segment bests show `—` in the time column, blanks for rank and gap, and the REQ-SEG-4 reason
+(`no time set` or `did not take part`) at the end of the row. Insights that don't
 apply are omitted (REQ-INS). If none apply, the `Insights` heading is omitted too. A classification
 note (REQ-CLS-8) or NC reason (REQ-CLS-6) goes on the line under the position. Column alignment uses
 plain spaces; no colour codes.
@@ -256,7 +324,7 @@ unknown option (exit 2). When built, `--json` prints one JSON object to stdout i
     "Q2": {"time": 80.221, "display": "1:20.221", "rank": 10, "gap": 1.287},
     "Q3": null
   },
-  "insights": [{"id": "INS-1", "title": "Gap to pole", "detail": "+1.703"}],
+  "insights": [{"id": "INS-2", "title": "Teammate HUL (P11)", "detail": "Q1 -0.529, Q2 -0.082 (faster in 2 of 2)"}],
   "caveats": []
 }
 ```
@@ -268,33 +336,49 @@ present so the shape stays stable; it's empty until REQ-INS-6 (*Later*) is built
 and exits 0. It needs no driver code.
 
 **REQ-OUT-4 — Exit codes.** 0 success · 1 data file problem · 2 usage error or unknown driver.
+Code 2 only applies when the code is given on the command line. The interactive prompt
+(REQ-DRV-4) never exits with 2.
 
 ### 3.10 Insights
 
 Each insight is computed independently. An insight that doesn't apply to the driver is omitted, not
 shown as an error. Weather-based insights are excluded (EDA §3.1).
 
-**REQ-INS-1 — Gap to pole and to neighbours.** *(MVP)*
+**REQ-INS-1 — Gap to pole and to neighbours.** *(Later)*
 - *Gap to pole:* the driver's fastest valid lap of the session minus the P1 driver's deciding time.
   Shown as `pole` for P1. Omitted for NC drivers.
 - *Car ahead / car behind:* the classified drivers directly ahead and behind. A gap is shown only
   when **both drivers set a valid time in the same deciding segment**, i.e. the furthest segment each
   reached is the same and both have a time in it. The gap is labelled with that segment. Otherwise
   that line is omitted, because times from different segments aren't comparable.
-- *Sign convention (all head-to-head deltas, here and in REQ-INS-2):* the driver's time minus the
-  other driver's time, so negative means the driver was faster.
+- Deltas use the sign convention in REQ-INS-2.
 
 > *Examples:*
 > - LIN (P9) — car ahead LAW +1.253 (Q3); car behind BOR omitted (BOR has no Q3 time).
 > - BOR (P10) — gap to pole +1.703; both neighbour lines omitted (no Q3 time; HUL's deciding segment is Q2).
 > - HUL (P11) — car ahead BOR omitted (different deciding segment); car behind BEA -0.008 (Q2).
 
-**REQ-INS-2 — Teammate head-to-head.** *(Later)* For each segment in which both the driver and their
-teammate (same `team`) set a valid time: driver's best minus teammate's best. If the team has only
-one driver in the data, omit this insight (a caveat covers it, REQ-INS-6). If they share no timed
-segment, show `no comparable segment`.
+**REQ-INS-2 — Teammate head-to-head.** *(MVP — the one extra insight)*
 
-> *Example:* RUS vs ANT → Q1 -0.613, Q2 -0.501, Q3 -0.293.
+*Why this insight:* teammates drive the same car, so the gap between them is the cleanest measure of
+the **driver's** performance. The position and segment times mix driver and car.
+
+- **Teammate:** the other driver(s) in the data with the same `team`. If there is more than one,
+  one line per teammate, sorted by code.
+- **Line:** `Teammate <CODE> (<position or NC>): <segment> <delta>, …` for each segment in which
+  **both** set a valid time, in segment order, followed by `(faster in x of y)`.
+- **Sign convention** (used by every head-to-head delta in this spec): the driver's time minus the
+  other driver's time, so **negative means the driver was faster**.
+- **No shared timed segment:** `Teammate <CODE> (<position>): no comparable segment`.
+- **No teammate in the data:** `Teammate: not in this dataset`. In the MVP this is shown, not
+  omitted, so every driver gets an insight line. It's also the caveat REQ-INS-6 lists for later.
+
+> *Examples:*
+> - RUS → `Teammate ANT (P2): Q1 -0.613, Q2 -0.501, Q3 -0.293 (faster in 3 of 3)`
+> - BOR → `Teammate HUL (P11): Q1 -0.529, Q2 -0.082 (faster in 2 of 2)`
+> - LEC → `Teammate HAM (P7): Q1 +0.415, Q2 -0.564, Q3 -0.151 (faster in 2 of 3)`
+> - VER → `Teammate HAD (P3): no comparable segment`
+> - ALO → `Teammate: not in this dataset`
 
 **REQ-INS-3 — Cutoff margins.** *(Later)* For each elimination segment (Q1, Q2) in which the driver set a
 valid time, using the cutoff *k* (REQ-ADV-2: 16 for Q1, 10 for Q2) and that segment's order:
@@ -331,7 +415,35 @@ and lap number. Omitted if there are none.
 
 ---
 
-## 4. Acceptance: expected classification for this file
+## 4. Deliverables
+
+**REQ-DOC-1 — Technical write-up.** `docs/WRITEUP.md` must cover, briefly:
+1. How to build, run and test (both REQ-RT-2 commands, and `uv run pytest`)
+2. Overall approach, architecture and key design choices
+3. Assumptions and trade-offs, and why (valid-lap rule, fixed cutoffs, no-time placement, NC, weather excluded)
+4. Why the teammate comparison was chosen and what it shows (REQ-INS-2)
+5. Testing approach (REQ-TEST-1)
+6. Future improvements (the *Later* items in §1.1)
+7. How AI tools were used and how they influenced the solution. This section is written by or
+   confirmed by the author.
+
+**REQ-TEST-1 — Test suite.** A small pytest suite that shows a deliberate approach rather than
+coverage. It must include:
+- at least one test per MVP requirement, named after it (`test_req_cls_3_…`)
+- the full acceptance table in §5, checked against the real file
+- small synthetic data for rules the real file doesn't exercise: deleted fastest lap, tie on equal
+  times, several drivers with no time (REQ-CLS-4), malformed values (REQ-IN-7)
+- error paths: missing file, invalid JSON, unequal lists, bad code format, unknown code, exit codes
+- the interactive prompt driven by scripted input (e.g. `XYZ`, empty line, `hul`, `q`): each bad
+  input is explained and re-asked, the report appears, and the exit code is 0
+- `format_laptime` / `format_delta` edge cases (REQ-FMT-1/2)
+
+**REQ-DOC-2 — Repository hygiene.** The data's license and attribution (`data/LICENSE`,
+`data/NOTICE.md`) stay in the repo. The exercise brief (`brief.md`) isn't committed.
+
+---
+
+## 5. Acceptance: expected classification for this file
 
 | P | Code | Deciding time | Note |
 |---|---|---|---|
@@ -356,7 +468,7 @@ and lap number. Omitted if there are none.
 | 19 | BOT | Q1 1:23.244 | |
 | NC | VER | — | No valid lap set (REQ-CLS-6) |
 
-## 5. Open questions
+## 6. Open questions
 
 1. ~~Fixed cutoffs vs. `qs` labels~~ — **Resolved:** fixed cutoffs, 16 and 10 (REQ-ADV-1,
    REQ-ADV-2), so BOR counts as a Q3 driver with no time. `qs` disagreements become caveats
